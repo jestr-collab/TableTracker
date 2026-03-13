@@ -482,8 +482,10 @@
     }
 
     function loadCsv() {
+      // Cache-bust so public URL (e.g. GitHub Pages) gets fresh data after you push
+      var q = "?v=" + Date.now();
       // Try loading from XLSX first
-      fetch("pinktabletracker.xlsx")
+      fetch("pinktabletracker.xlsx" + q)
         .then((res) => {
           if (!res.ok) {
             throw new Error("xlsx not found, status " + res.status);
@@ -509,7 +511,7 @@
         })
         .catch((err) => {
           console.warn("Falling back to CSV because XLSX load failed:", err);
-          Papa.parse("pinktabletracker.csv", {
+          Papa.parse("pinktabletracker.csv" + q, {
             header: true,
             skipEmptyLines: "greedy",
             download: true,
