@@ -1,0 +1,566 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Curebound Seating Map</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <style>
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: #ffffff;
+      color: #111827;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      min-height: 100vh;
+    }
+
+    header {
+      width: 100%;
+      max-width: 1400px;
+      padding: 12px 16px 4px;
+    }
+
+    h1 {
+      margin: 0;
+      font-size: 1rem;
+      font-weight: 600;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+
+    p {
+      margin: 4px 0 0;
+      font-size: 0.8rem;
+      color: #9ca3af;
+    }
+
+    main {
+      width: 100%;
+      max-width: 1400px;
+      padding: 4px 16px 16px;
+      position: relative; /* for absolute legend positioning */
+    }
+
+    #map-container {
+      position: relative;
+      display: block;
+      margin: 0 auto;
+      max-width: 95vw;
+      border-radius: 10px;
+      overflow: hidden;
+      background: #000;
+    }
+
+    #map-image {
+      display: block;
+      width: 100%;
+      max-width: 100%;
+      height: auto; /* critical: matches helper page behavior */
+      user-select: none;
+      pointer-events: none;
+    }
+
+    .seat-dot {
+      position: absolute;
+      width: 24px;
+      height: 24px;
+      border-radius: 999px;
+      transform: translate(-50%, -50%);
+      background: #ff964b; /* solid orange */
+      box-shadow: 0 0 6px rgba(15, 23, 42, 0.7);
+      cursor: pointer;
+      transition: transform 120ms ease-out, box-shadow 120ms ease-out;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 1px;
+      box-sizing: border-box;
+      color: #111827;
+      font-size: 4.5px;
+      font-weight: 500;
+      text-align: center;
+      line-height: 1.05;
+      white-space: normal;     /* allow wrap only at spaces */
+      word-break: keep-all;    /* avoid breaking inside words */
+      overflow: hidden;        /* keep text inside circle */
+    }
+
+    .seat-dot:hover {
+      transform: translate(-50%, -50%) scale(1.18);
+      box-shadow: 0 0 0 3px rgba(255, 166, 102, 0.55);
+      z-index: 10;
+    }
+
+    .seat-dot.status-online {
+      background: #3b82f6;
+    }
+
+    .seat-dot.status-online:hover {
+      box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.55);
+    }
+
+    .seat-dot.status-hold {
+      background: #ec4899; /* pink */
+    }
+
+    .seat-dot.status-hold:hover {
+      box-shadow: 0 0 0 3px rgba(236, 72, 153, 0.55);
+    }
+
+    .seat-dot.status-inventory {
+      background: #eab308; /* yellow */
+    }
+
+    .seat-dot.status-inventory:hover {
+      box-shadow: 0 0 0 3px rgba(234, 179, 8, 0.55);
+    }
+
+    .seat-dot.status-killed {
+      background: #000000; /* black */
+      color: #f9fafb;      /* white-ish text for contrast */
+    }
+
+    .seat-dot.status-killed:hover {
+      box-shadow: 0 0 0 3px rgba(15, 23, 42, 0.8);
+    }
+
+    #tooltip {
+      position: absolute;
+      min-width: 160px;
+      max-width: 260px;
+      padding: 6px 8px;
+      border-radius: 8px;
+      font-size: 0.75rem;
+      background: rgba(15, 23, 42, 0.96);
+      color: #f9fafb;
+      border: 1px solid rgba(148, 163, 184, 0.7);
+      box-shadow: 0 10px 25px rgba(15, 23, 42, 0.95);
+      transform: translate(-50%, calc(-100% - 10px));
+      pointer-events: none;
+      z-index: 20;
+    }
+
+    #tooltip.hidden {
+      opacity: 0;
+      visibility: hidden;
+    }
+
+    #tooltip-title {
+      font-weight: 600;
+      margin-bottom: 2px;
+    }
+
+    #tooltip-body {
+      color: #e5e7eb;
+    }
+
+    #sidebar {
+      margin-top: 8px;
+      padding: 8px 10px;
+      border-radius: 8px;
+      background: rgba(15, 23, 42, 0.95);
+      border: 1px solid rgba(148, 163, 184, 0.5);
+      font-size: 0.8rem;
+      color: #f9fafb;
+      max-width: 260px;
+    }
+
+    #sidebar strong {
+      font-weight: 600;
+    }
+
+    #legend {
+      position: absolute;
+      left: -10%;
+      top: 55%;
+      size: 1130px;
+      max-width: 160px;
+      background: #ffffff;
+      padding: 4px;
+      border-radius: 4px;
+      box-shadow: 0 4px 10px rgba(15, 23, 42, 0.25);
+    }
+
+    #legend img {
+      display: block;
+      width: 100%;
+      height: auto;
+    }
+    #lock-screen {
+      position: fixed;
+      inset: 0;
+      background: rgba(15, 23, 42, 0.96);
+      color: #f9fafb;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 1000;
+    }
+
+    #lock-inner {
+      padding: 18px 20px 16px;
+      border-radius: 10px;
+      background: #020617;
+      box-shadow: 0 18px 40px rgba(0, 0, 0, 0.7);
+      width: 100%;
+      max-width: 320px;
+      font-size: 0.85rem;
+    }
+
+    #lock-inner h2 {
+      margin: 0 0 8px;
+      font-size: 0.95rem;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+    }
+
+    #lock-inner p {
+      margin: 0 0 10px;
+      font-size: 0.8rem;
+      color: #9ca3af;
+    }
+
+    #lock-password {
+      width: 100%;
+      padding: 7px 8px;
+      border-radius: 6px;
+      border: 1px solid #4b5563;
+      background: #020617;
+      color: #f9fafb;
+      font-size: 0.85rem;
+      margin-bottom: 8px;
+      box-sizing: border-box;
+    }
+
+    #lock-password:focus {
+      outline: none;
+      border-color: #3b82f6;
+      box-shadow: 0 0 0 1px #3b82f6;
+    }
+
+    #lock-error {
+      min-height: 16px;
+      font-size: 0.75rem;
+      color: #f97373;
+      margin-bottom: 6px;
+    }
+
+    #lock-button {
+      width: 100%;
+      padding: 7px 8px;
+      border-radius: 6px;
+      border: none;
+      background: #10b981;
+      color: #022c22;
+      font-size: 0.85rem;
+      font-weight: 600;
+      cursor: pointer;
+    }
+
+    #lock-button:hover {
+      filter: brightness(1.05);
+    }
+
+    #content-root.locked main,
+    #content-root.locked header,
+    #content-root.locked footer {
+      filter: blur(3px);
+      pointer-events: none;
+      user-select: none;
+    }
+  </style>
+  <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+</head>
+<body>
+  <div id="content-root" class="locked">
+    <header>
+      <h1>Curebound Seating Map</h1>
+      <p>Hover a dot to see table and household from pinktabletracker.</p>
+    </header>
+
+    <main>
+      <div id="map-container">
+        <img
+          id="map-image"
+          src="Screenshot 2026-03-12 at 11.34.01 AM.png"
+          alt="Curebound event seating map"
+        />
+        <div id="tooltip" class="hidden">
+          <div id="tooltip-title"></div>
+          <div id="tooltip-body"></div>
+        </div>
+      </div>
+
+      <div id="sidebar">
+        <div><strong>Table:</strong> <span id="current-table">None</span></div>
+        <div><strong>Household:</strong> <span id="current-household">—</span></div>
+      </div>
+
+      <div id="legend">
+        <img src="key.png" alt="Seating level legend" />
+      </div>
+    </main>
+  </div>
+
+  <div id="lock-screen">
+    <div id="lock-inner">
+      <h2>Restricted access</h2>
+      <p>Please enter the event password to continue.</p>
+      <input id="lock-password" type="password" autocomplete="off" />
+      <div id="lock-error"></div>
+      <button id="lock-button">Unlock</button>
+    </div>
+  </div>
+
+  <script>
+    function normalizeTableId(raw) {
+      if (!raw) return "";
+      return String(raw).trim().toUpperCase();
+    }
+
+    function parseCoordinateString(coord) {
+      if (!coord) return null;
+      const text = String(coord).trim();
+      const m = text.match(/x\s*=\s*([0-9.]+)\s*,\s*y\s*=\s*([0-9.]+)/i);
+      if (!m) return null;
+      const x = parseFloat(m[1]);
+      const y = parseFloat(m[2]);
+      if (!Number.isFinite(x) || !Number.isFinite(y)) return null;
+      return { x, y };
+    }
+
+    function getField(row, logicalName) {
+      if (!row) return "";
+      const target = String(logicalName).trim().toLowerCase();
+      for (const key in row) {
+        if (!Object.prototype.hasOwnProperty.call(row, key)) continue;
+        if (String(key).trim().toLowerCase() === target) {
+          return row[key];
+        }
+      }
+      return "";
+    }
+
+    const mapContainer = document.getElementById("map-container");
+    const mapImage = document.getElementById("map-image");
+    const tooltip = document.getElementById("tooltip");
+    const tooltipTitle = document.getElementById("tooltip-title");
+    const tooltipBody = document.getElementById("tooltip-body");
+    const currentTableEl = document.getElementById("current-table");
+    const currentHouseholdEl = document.getElementById("current-household");
+    const contentRoot = document.getElementById("content-root");
+    const lockScreen = document.getElementById("lock-screen");
+    const lockPasswordInput = document.getElementById("lock-password");
+    const lockError = document.getElementById("lock-error");
+    const lockButton = document.getElementById("lock-button");
+
+    let tableData = {};
+    let imageLoaded = false;
+
+    function unlockIfPasswordValid() {
+      const value = lockPasswordInput.value || "";
+      if (value === "Endcancer1!") {
+        lockError.textContent = "";
+        lockScreen.style.display = "none";
+        contentRoot.classList.remove("locked");
+        sessionStorage.setItem("cureboundUnlocked", "1");
+        return true;
+      }
+      lockError.textContent = "Incorrect password. Please try again.";
+      return false;
+    }
+
+    function setDetails(tableId, info) {
+      if (!tableId) {
+        currentTableEl.textContent = "None";
+        currentHouseholdEl.textContent = "—";
+        return;
+      }
+
+      currentTableEl.textContent = tableId;
+
+      const householdRaw = getField(info, "Household Name");
+      const household = (householdRaw && String(householdRaw).trim()) || "—";
+      currentHouseholdEl.textContent = household;
+    }
+
+    function showTooltipAtMouse(event, tableId, info) {
+      if (!imageLoaded) return;
+
+      const householdRaw = getField(info, "Household Name");
+      const notesRaw = getField(info, "Notes");
+      const title = "Table " + tableId;
+      const household =
+        (householdRaw && String(householdRaw).trim()) || "No household name";
+      const notes =
+        (notesRaw && String(notesRaw).trim()) || "";
+
+      tooltipTitle.textContent = title;
+      tooltipBody.innerHTML = notes
+        ? household + "<br/><em>" + notes + "</em>"
+        : household;
+
+      const xPx = event.clientX - 74;
+      const yPx = event.clientY + 4;
+      tooltip.style.left = xPx + "px";
+      tooltip.style.top = yPx + "px";
+      tooltip.classList.remove("hidden");
+    }
+
+    function hideTooltip() {
+      tooltip.classList.add("hidden");
+    }
+
+    function buildDotsFromData(rows) {
+      Array.from(document.querySelectorAll(".seat-dot")).forEach((d) => d.remove());
+
+      rows.forEach((row) => {
+        const tableId = normalizeTableId(
+          row["Table #"] || row["Table Number"] || row["Table"] || row["Table # "] || row.Table
+        );
+        if (!tableId) return;
+
+        const coords = parseCoordinateString(row.Coordinates || row["Coordinates"]);
+        if (!coords) return;
+
+        const info = tableData[tableId] || row;
+        const householdRaw = getField(info, "Household Name");
+        const statusRaw = getField(info, "Status");
+        const label = (householdRaw && String(householdRaw).trim()) || tableId;
+        const statusText = (statusRaw && String(statusRaw).trim().toLowerCase()) || "";
+        const isOnline = statusText.includes("online");
+        const isHold = statusText.includes("sponsor hold");
+        const isInventory = statusText.includes("curebound inventory");
+        const isKilled = statusText === "killed" || statusText.includes("killed ");
+
+        const dot = document.createElement("div");
+        let dotClass = "seat-dot";
+        if (isOnline) {
+          dotClass += " status-online";
+        } else if (isHold) {
+          dotClass += " status-hold";
+        } else if (isInventory) {
+          dotClass += " status-inventory";
+        } else if (isKilled) {
+          dotClass += " status-killed";
+        }
+        dot.className = dotClass;
+        dot.style.left = coords.x + "%";
+        dot.style.top = coords.y + "%";
+        dot.dataset.tableId = tableId;
+        dot.textContent = label;
+
+        dot.addEventListener("mouseenter", (event) => {
+          setDetails(tableId, info);
+          showTooltipAtMouse(event, tableId, info);
+        });
+
+        dot.addEventListener("mousemove", (event) => {
+          showTooltipAtMouse(event, tableId, info);
+        });
+
+        dot.addEventListener("mouseleave", hideTooltip);
+
+        dot.addEventListener("click", (event) => {
+          const linkRaw = getField(info, "Opportunity Link");
+          const link = linkRaw && String(linkRaw).trim();
+          if (link) {
+            window.open(link, "_blank", "noopener,noreferrer");
+          }
+          event.stopPropagation();
+        });
+
+        mapContainer.appendChild(dot);
+      });
+    }
+
+    function loadCsv() {
+      // Try loading from XLSX first
+      fetch("pinktabletracker.xlsx")
+        .then((res) => {
+          if (!res.ok) {
+            throw new Error("xlsx not found, status " + res.status);
+          }
+          return res.arrayBuffer();
+        })
+        .then((data) => {
+          const workbook = XLSX.read(data, { type: "array" });
+          const firstSheetName = workbook.SheetNames[0];
+          const worksheet = workbook.Sheets[firstSheetName];
+          const rows = XLSX.utils.sheet_to_json(worksheet, { defval: "" });
+
+          const map = {};
+          rows.forEach((row) => {
+            const key = normalizeTableId(
+              row["Table #"] || row["Table Number"] || row["Table"] || row.Table
+            );
+            if (!key) return;
+            map[key] = row;
+          });
+          tableData = map;
+          buildDotsFromData(rows);
+        })
+        .catch((err) => {
+          console.warn("Falling back to CSV because XLSX load failed:", err);
+          Papa.parse("pinktabletracker.csv", {
+            header: true,
+            skipEmptyLines: "greedy",
+            download: true,
+            complete: (results) => {
+              const rows = results.data || [];
+              const map = {};
+              rows.forEach((row) => {
+                const key = normalizeTableId(
+                  row["Table #"] || row["Table Number"] || row["Table"] || row.Table
+                );
+                if (!key) return;
+                map[key] = row;
+              });
+              tableData = map;
+              buildDotsFromData(rows);
+            },
+            error: (csvErr) => {
+              console.error("Error loading both pinktabletracker.xlsx and .csv", csvErr);
+            },
+          });
+        });
+    }
+
+    mapImage.addEventListener("load", () => {
+      imageLoaded = true;
+      loadCsv();
+    });
+
+    if (mapImage.complete) {
+      imageLoaded = true;
+      loadCsv();
+    }
+
+    mapContainer.addEventListener("click", () => {
+      setDetails("", null);
+      hideTooltip();
+    });
+
+    lockButton.addEventListener("click", unlockIfPasswordValid);
+    lockPasswordInput.addEventListener("keydown", (e) => {
+      if (e.key === "Enter") {
+        unlockIfPasswordValid();
+      }
+    });
+
+    if (sessionStorage.getItem("cureboundUnlocked") === "1") {
+      lockScreen.style.display = "none";
+      contentRoot.classList.remove("locked");
+    } else {
+      lockPasswordInput.focus();
+    }
+  </script>
+</body>
+</html>
