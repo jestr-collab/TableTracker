@@ -386,6 +386,25 @@
       return "";
     }
 
+    function getAllOpportunityLinks(row) {
+      if (!row) return [];
+      const headers = [
+        "Opportunity Link",
+        "Opportunity Link #2",
+        "Opportunity Link #3",
+        "Opportunity Link #4",
+      ];
+      const links = [];
+      headers.forEach((name) => {
+        const raw = getField(row, name);
+        const val = raw && String(raw).trim();
+        if (val) {
+          links.push(val);
+        }
+      });
+      return links;
+    }
+
     const mapContainer = document.getElementById("map-container");
     const mapImage = document.getElementById("map-image");
     const tooltip = document.getElementById("tooltip");
@@ -515,12 +534,13 @@
         dot.addEventListener("mouseleave", hideTooltip);
 
         dot.addEventListener("click", (event) => {
-          const linkRaw = getField(info, "Opportunity Link");
-          const link = linkRaw && String(linkRaw).trim();
-          if (link) {
+          const links = getAllOpportunityLinks(info);
+          links.forEach((link) => {
             window.open(link, "_blank", "noopener,noreferrer");
+          });
+          if (links.length) {
+            event.stopPropagation();
           }
-          event.stopPropagation();
         });
 
         mapContainer.appendChild(dot);
