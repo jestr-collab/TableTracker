@@ -175,6 +175,39 @@
       font-weight: 600;
     }
 
+    .view-tabs {
+      display: inline-flex;
+      gap: 6px;
+      margin: 4px 0 6px;
+      padding: 2px;
+      border-radius: 999px;
+      background: #020617;
+      border: 1px solid rgba(148, 163, 184, 0.6);
+    }
+
+    .tab-button {
+      border: none;
+      border-radius: 999px;
+      padding: 4px 10px;
+      font-size: 0.72rem;
+      font-weight: 500;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      cursor: pointer;
+      background: transparent;
+      color: #9ca3af;
+      transition: background-color 120ms ease-out, color 120ms ease-out;
+    }
+
+    .tab-button.active {
+      background: #10b981;
+      color: #022c22;
+    }
+
+    .tab-button:not(.active):hover {
+      color: #e5e7eb;
+    }
+
     #legend {
       position: absolute;
       left: -10%;
@@ -286,6 +319,11 @@
     </header>
 
     <main>
+      <div class="view-tabs">
+        <button id="tab-labeled" class="tab-button active">Labeled View</button>
+        <button id="tab-blank" class="tab-button">Blank View</button>
+      </div>
+
       <div id="map-container">
         <img
           id="map-image"
@@ -360,9 +398,13 @@
     const lockPasswordInput = document.getElementById("lock-password");
     const lockError = document.getElementById("lock-error");
     const lockButton = document.getElementById("lock-button");
+    const tabLabeled = document.getElementById("tab-labeled");
+    const tabBlank = document.getElementById("tab-blank");
 
     let tableData = {};
     let imageLoaded = false;
+    let currentView = "labeled"; // "labeled" or "blank"
+    let currentRows = [];
 
     function unlockIfPasswordValid() {
       const value = lockPasswordInput.value || "";
@@ -419,6 +461,7 @@
     }
 
     function buildDotsFromData(rows) {
+      currentRows = rows || [];
       Array.from(document.querySelectorAll(".seat-dot")).forEach((d) => d.remove());
 
       rows.forEach((row) => {
@@ -433,7 +476,10 @@
         const info = tableData[tableId] || row;
         const householdRaw = getField(info, "Household Name");
         const statusRaw = getField(info, "Status");
-        const label = (householdRaw && String(householdRaw).trim()) || tableId;
+        const label =
+          currentView === "blank"
+            ? ""
+            : (householdRaw && String(householdRaw).trim()) || tableId;
         const statusText = (statusRaw && String(statusRaw).trim().toLowerCase()) || "";
         const isOnline = statusText.includes("online");
         const isHold = statusText.includes("sponsor hold");
@@ -479,6 +525,20 @@
 
         mapContainer.appendChild(dot);
       });
+    }
+
+    function setView(view) {
+      if (view === currentView) return;
+      currentView = view;
+
+      if (tabLabeled && tabBlank) {
+        tabLabeled.classList.toggle("active", view === "labeled");
+        tabBlank.classList.toggle("active", view === "blank");
+      }
+
+      if (currentRows && currentRows.length) {
+        buildDotsFromData(currentRows);
+      }
     }
 
     function loadCsv() {
@@ -549,6 +609,11 @@
       setDetails("", null);
       hideTooltip();
     });
+
+    if (tabLabeled && tabBlank) {
+      tabLabeled.addEventListener("click", () => setView("labeled"));
+      tabBlank.addEventListener("click", () => setView("blank"));
+    }
 
     lockButton.addEventListener("click", unlockIfPasswordValid);
     lockPasswordInput.addEventListener("keydown", (e) => {
