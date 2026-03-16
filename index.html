@@ -565,7 +565,7 @@
       // Cache-bust so public URL (e.g. GitHub Pages) gets fresh data after you push
       var q = "?v=" + Date.now();
       // Try loading from XLSX first
-      fetch("pinktabletracker.xlsx" + q)
+      fetch("Pinktabletrackerlocal.xlsx" + q)
         .then((res) => {
           if (!res.ok) {
             throw new Error("xlsx not found, status " + res.status);
@@ -609,7 +609,7 @@
               buildDotsFromData(rows);
             },
             error: (csvErr) => {
-              console.error("Error loading both pinktabletracker.xlsx and .csv", csvErr);
+              console.error("Error loading both Pinktabletrackerlocal.xlsx and .csv", csvErr);
             },
           });
         });
