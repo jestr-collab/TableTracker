@@ -388,20 +388,25 @@
 
     function getAllOpportunityLinks(row) {
       if (!row) return [];
-      const headers = [
-        "Opportunity Link",
-        "Opportunity Link #2",
-        "Opportunity Link #3",
-        "Opportunity Link #4",
-      ];
+      const wanted = new Set([
+        "opportunitylink",
+        "opportunitylink#2",
+        "opportunitylink#3",
+        "opportunitylink#4",
+      ]);
       const links = [];
-      headers.forEach((name) => {
-        const raw = getField(row, name);
+
+      for (const key in row) {
+        if (!Object.prototype.hasOwnProperty.call(row, key)) continue;
+        const normalized = String(key).trim().toLowerCase().replace(/\s+/g, "");
+        if (!wanted.has(normalized)) continue;
+        const raw = row[key];
         const val = raw && String(raw).trim();
         if (val) {
           links.push(val);
         }
-      });
+      }
+
       return links;
     }
 
