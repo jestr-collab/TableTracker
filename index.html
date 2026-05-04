@@ -366,12 +366,33 @@
     function parseCoordinateString(coord) {
       if (!coord) return null;
       const text = String(coord).trim();
-      const m = text.match(/x\s*=\s*([0-9.]+)\s*,\s*y\s*=\s*([0-9.]+)/i);
-      if (!m) return null;
-      const x = parseFloat(m[1]);
-      const y = parseFloat(m[2]);
-      if (!Number.isFinite(x) || !Number.isFinite(y)) return null;
-      return { x, y };
+      if (!text || /^#n\/a/i.test(text)) return null;
+
+      var m = text.match(/x\s*=\s*([0-9.]+)\s*,\s*y\s*=\s*([0-9.]+)/i);
+      if (m) {
+        var xa = parseFloat(m[1]);
+        var ya = parseFloat(m[2]);
+        if (Number.isFinite(xa) && Number.isFinite(ya)) return { x: xa, y: ya };
+      }
+      m = text.match(/y\s*=\s*([0-9.]+)\s*,\s*x\s*=\s*([0-9.]+)/i);
+      if (m) {
+        var xb = parseFloat(m[2]);
+        var yb = parseFloat(m[1]);
+        if (Number.isFinite(xb) && Number.isFinite(yb)) return { x: xb, y: yb };
+      }
+      m = text.match(/x\s*=\s*([0-9.]+)[\s\S]*?y\s*=\s*([0-9.]+)/i);
+      if (m) {
+        var xc = parseFloat(m[1]);
+        var yc = parseFloat(m[2]);
+        if (Number.isFinite(xc) && Number.isFinite(yc)) return { x: xc, y: yc };
+      }
+      m = text.match(/y\s*=\s*([0-9.]+)[\s\S]*?x\s*=\s*([0-9.]+)/i);
+      if (m) {
+        var xd = parseFloat(m[2]);
+        var yd = parseFloat(m[1]);
+        if (Number.isFinite(xd) && Number.isFinite(yd)) return { x: xd, y: yd };
+      }
+      return null;
     }
 
     function getField(row, logicalName) {
@@ -488,14 +509,33 @@
       currentRows = rows || [];
       Array.from(document.querySelectorAll(".seat-dot")).forEach((d) => d.remove());
 
+      var placed = 0;
+      var skippedNoTable = 0;
+      var skippedNoCoord = 0;
+
       rows.forEach((row) => {
         const tableId = normalizeTableId(
-          row["Table #"] || row["Table Number"] || row["Table"] || row["Table # "] || row.Table
+          getField(row, "Table #") ||
+            getField(row, "Table Number") ||
+            getField(row, "Table") ||
+            row["Table #"] ||
+            row["Table Number"] ||
+            row["Table"] ||
+            row["Table # "] ||
+            row.Table
         );
-        if (!tableId) return;
+        if (!tableId) {
+          skippedNoTable += 1;
+          return;
+        }
 
-        const coords = parseCoordinateString(row.Coordinates || row["Coordinates"]);
-        if (!coords) return;
+        const coordRaw =
+          getField(row, "Coordinates") || row.Coordinates || row["Coordinates"];
+        const coords = parseCoordinateString(coordRaw);
+        if (!coords) {
+          skippedNoCoord += 1;
+          return;
+        }
 
         const info = tableData[tableId] || row;
         const householdRaw = getField(info, "Household Name");
@@ -549,7 +589,20 @@
         });
 
         mapContainer.appendChild(dot);
+        placed += 1;
       });
+
+      if (rows.length && !placed) {
+        console.warn(
+          "[map] No dots placed — check Table # / Coordinates columns in the spreadsheet.",
+          "rows:",
+          rows.length,
+          "skipped (no table):",
+          skippedNoTable,
+          "skipped (bad coords):",
+          skippedNoCoord
+        );
+      }
     }
 
     function setView(view) {
